@@ -114,7 +114,7 @@ java -jar target/javasecscan-0.1.0.jar \
      samples/vulnerable-app/target/vulnerable-app-0.1.0.jar
 ```
 
-Emits findings on stdout. Exit code is `0` when no findings, `1` otherwise — suitable for use in a CI pipeline.
+Emits findings on stdout, or to a file when `--output=<path>` is given. Exit code is `0` when no findings, `1` otherwise — suitable for use as a CI gate that fails the build on any vulnerability. Use `--output` plus a shell guard if you want to inspect the report without failing the step.
 
 ## Sample vulnerable application
 

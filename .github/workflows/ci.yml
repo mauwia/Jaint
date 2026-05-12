@@ -112,6 +112,7 @@ jobs:
 
       - name: Scan vulnerable sample (assert it finds the planted vulns)
         run: |
+          set +e
           java -jar "${{ steps.jars.outputs.scanner }}" \
                --spring.profiles.active=cli \
                --spring.main.banner-mode=off \
@@ -119,6 +120,13 @@ jobs:
                --format=json \
                --output=findings.json \
                "${{ steps.jars.outputs.sample }}"
+          rc=$?
+          # Exit codes: 0 = no findings, 1 = findings present, other = error.
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
+            echo "::error::scanner failed with exit code $rc"
+            exit "$rc"
+          fi
+          set -e
           n=$(jq 'length' findings.json)
           echo "Found $n findings"
           if [ "$n" -lt 3 ]; then
