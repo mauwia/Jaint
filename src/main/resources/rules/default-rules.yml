@@ -1,0 +1,44 @@
+rules:
+  - id: SQLI-001
+    name: SQL Injection via Statement
+    cwe: CWE-89
+    severity: HIGH
+    sources:
+      - "javax.servlet.http.HttpServletRequest: java.lang.String getParameter(java.lang.String)"
+      - "javax.servlet.http.HttpServletRequest: java.lang.String getHeader(java.lang.String)"
+      - "java.util.Scanner: java.lang.String nextLine()"
+      - "java.io.BufferedReader: java.lang.String readLine()"
+    sinks:
+      - "java.sql.Statement: java.sql.ResultSet executeQuery(java.lang.String)"
+      - "java.sql.Statement: int executeUpdate(java.lang.String)"
+      - "java.sql.Statement: boolean execute(java.lang.String)"
+    sanitizers:
+      - "demo.SqlSanitizer: java.lang.String sanitize(java.lang.String)"
+      - "org.apache.commons.text.StringEscapeUtils: java.lang.String escapeSql(java.lang.String)"
+
+  - id: CMDI-001
+    name: OS Command Injection
+    cwe: CWE-78
+    severity: CRITICAL
+    sources:
+      - "javax.servlet.http.HttpServletRequest: java.lang.String getParameter(java.lang.String)"
+      - "java.util.Scanner: java.lang.String nextLine()"
+      - "java.io.BufferedReader: java.lang.String readLine()"
+    sinks:
+      - "java.lang.Runtime: java.lang.Process exec(java.lang.String)"
+      - "java.lang.Runtime: java.lang.Process exec(java.lang.String[])"
+      - "java.lang.ProcessBuilder: void <init>(java.util.List)"
+      - "java.lang.ProcessBuilder: void <init>(java.lang.String[])"
+
+  - id: PATH-001
+    name: Path Traversal
+    cwe: CWE-22
+    severity: HIGH
+    sources:
+      - "javax.servlet.http.HttpServletRequest: java.lang.String getParameter(java.lang.String)"
+      - "java.util.Scanner: java.lang.String nextLine()"
+    sinks:
+      - "java.io.FileInputStream: void <init>(java.lang.String)"
+      - "java.io.FileOutputStream: void <init>(java.lang.String)"
+      - "java.io.File: void <init>(java.lang.String)"
+      - "java.nio.file.Paths: java.nio.file.Path get(java.lang.String,java.lang.String[])"

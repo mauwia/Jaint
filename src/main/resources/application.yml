@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: javasecscan
+  datasource:
+    url: jdbc:h2:mem:javasecscan;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 200MB
+
+server:
+  port: 8080
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+
+javasecscan:
+  rules-path: classpath:rules/default-rules.yml
+  work-dir: ${java.io.tmpdir}/javasecscan
+  scan-thread-pool-size: 2
+
+logging:
+  level:
+    com.javasecscan: INFO
+    soot: WARN

@@ -1,0 +1,15 @@
+target/
+**/target/
+*.class
+*.jar
+!samples/**/lib/*.jar
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+.DS_Store
+*.log
+HELP.md
+.mvn/

@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write  # required for uploading SARIF
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build & test scanner
+        run: mvn -B -ntp verify
+
+      - name: Build vulnerable sample
+        run: mvn -B -ntp -f samples/vulnerable-app/pom.xml -DskipTests package
+
+      - name: Upload scanner jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: javasecscan-jar
+          path: target/javasecscan-*.jar
+          if-no-files-found: error
+
+      - name: Upload sample jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulnerable-app-jar
+          path: samples/vulnerable-app/target/vulnerable-app-*.jar
+          if-no-files-found: error
+
+  self-scan:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build scanner
+        run: mvn -B -ntp -DskipTests package
+
+      - name: Locate scanner jar
+        id: jar
+        run: echo "path=$(ls target/javasecscan-*.jar | grep -v original | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Scan the scanner (dogfood)
+        run: |
+          java -jar "${{ steps.jar.outputs.path }}" \
+               --spring.profiles.active=cli \
+               --spring.main.banner-mode=off \
+               --logging.level.root=WARN \
+               --format=sarif \
+               "${{ steps.jar.outputs.path }}" > self-scan.sarif || true
+          echo "--- SARIF preview ---"
+          head -c 2000 self-scan.sarif
+
+      - name: Upload SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: self-scan.sarif
+          category: javasecscan-self
+
+  scan-vulnerable-sample:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build scanner & sample
+        run: |
+          mvn -B -ntp -DskipTests package
+          mvn -B -ntp -f samples/vulnerable-app/pom.xml -DskipTests package
+
+      - name: Locate jars
+        id: jars
+        run: |
+          {
+            echo "scanner=$(ls target/javasecscan-*.jar | grep -v original | head -1)"
+            echo "sample=$(ls samples/vulnerable-app/target/vulnerable-app-*.jar | head -1)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Scan vulnerable sample (assert it finds the planted vulns)
+        run: |
+          java -jar "${{ steps.jars.outputs.scanner }}" \
+               --spring.profiles.active=cli \
+               --spring.main.banner-mode=off \
+               --logging.level.root=WARN \
+               --format=json \
+               "${{ steps.jars.outputs.sample }}" > findings.json
+          n=$(jq 'length' findings.json)
+          echo "Found $n findings"
+          if [ "$n" -lt 3 ]; then
+            echo "::error::expected at least 3 findings on vulnerable sample, got $n"
+            cat findings.json
+            exit 1
+          fi
+          jq -r '.[] | "- " + .ruleId + " in " + .enclosingClass + "#" + .enclosingMethod' findings.json
