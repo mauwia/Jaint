@@ -70,12 +70,16 @@ jobs:
                --spring.main.banner-mode=off \
                --logging.level.root=WARN \
                --format=sarif \
-               "${{ steps.jar.outputs.path }}" > self-scan.sarif || true
+               --output=self-scan.sarif \
+               "${{ steps.jar.outputs.path }}" || true
           echo "--- SARIF preview ---"
           head -c 2000 self-scan.sarif
+          echo
+          echo "--- verifying SARIF parses as JSON ---"
+          python3 -c "import json; json.load(open('self-scan.sarif')); print('OK')"
 
       - name: Upload SARIF to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: self-scan.sarif
           category: javasecscan-self
@@ -113,7 +117,8 @@ jobs:
                --spring.main.banner-mode=off \
                --logging.level.root=WARN \
                --format=json \
-               "${{ steps.jars.outputs.sample }}" > findings.json
+               --output=findings.json \
+               "${{ steps.jars.outputs.sample }}"
           n=$(jq 'length' findings.json)
           echo "Found $n findings"
           if [ "$n" -lt 3 ]; then

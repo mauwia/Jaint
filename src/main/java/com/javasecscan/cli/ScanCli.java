@@ -12,6 +12,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -35,16 +36,26 @@ public class ScanCli implements ApplicationRunner {
         List<String> jars = args.getNonOptionArgs();
         if (jars.isEmpty()) {
             System.err.println("Usage: java -jar javasecscan.jar --spring.profiles.active=cli "
-                    + "[--format=json|sarif] <path-to-jar>");
+                    + "[--format=json|sarif] [--output=path] <path-to-jar>");
             System.exit(2);
         }
         String format = firstOptionValue(args, "format", "json").toLowerCase();
+        String output = firstOptionValue(args, "output", null);
         Path jar = Path.of(jars.get(0));
         List<Finding> findings = analyzer.analyze(jar);
 
         ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
         Object payload = "sarif".equals(format) ? sarif.fromFindings(findings) : findings;
-        System.out.println(mapper.writeValueAsString(payload));
+        String serialized = mapper.writeValueAsString(payload);
+
+        if (output != null) {
+            Path outPath = Path.of(output);
+            if (outPath.getParent() != null) Files.createDirectories(outPath.getParent());
+            Files.writeString(outPath, serialized);
+            log.info("Wrote {} bytes to {}", serialized.length(), outPath);
+        } else {
+            System.out.println(serialized);
+        }
 
         int exitCode = findings.isEmpty() ? 0 : 1;
         ctx.close();
